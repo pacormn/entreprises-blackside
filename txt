@@ -1,0 +1,533 @@
+Below are redesigned files for your app. Replace your existing files with these. Keep your existing `config.php` and `login.php`.
+
+---
+
+# 📁 `index.php`
+
+```php
+<?php
+include("config.php");
+// Optional: order by name by default
+$stmt = $pdo->query("SELECT * FROM avaiable_societies ORDER BY nom ASC");
+$companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Disponibilités • Sociétés</title>
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body class="theme-dark">
+  <header class="site-header container-xl">
+    <div class="brand">
+      <div class="logo">🗂️</div>
+      <div>
+        <h1>Disponibilités des sociétés</h1>
+        <p class="muted">Vue publique en temps réel</p>
+      </div>
+    </div>
+    <nav class="header-actions">
+      <a class="btn ghost" href="admin.php">Espace admin →</a>
+    </nav>
+  </header>
+
+  <section class="toolbar container-xl">
+    <div class="controls">
+      <input id="search" type="search" placeholder="Rechercher une société… (⌘/Ctrl + K)" autocomplete="off" />
+      <button id="toggleOpen" class="btn">Afficher: Tous</button>
+      <div class="seg">
+        <button id="sortAZ" class="seg-btn active" aria-pressed="true">A→Z</button>
+        <button id="sortZA" class="seg-btn" aria-pressed="false">Z→A</button>
+        <button id="sortStatus" class="seg-btn" aria-pressed="false">Par statut</button>
+      </div>
+      <div class="seg">
+        <button id="viewGrid" class="seg-btn active" title="Grille">▦</button>
+        <button id="viewList" class="seg-btn" title="Liste">≣</button>
+      </div>
+    </div>
+    <div class="stats">
+      <span id="countAll" class="chip">0 total</span>
+      <span id="countOpen" class="chip success">0 ouverts</span>
+      <span id="countClosed" class="chip danger">0 fermés</span>
+    </div>
+  </section>
+
+  <main class="container-xl">
+    <div id="cards" class="cards grid-view" role="list">
+      <?php foreach ($companies as $c): ?>
+        <?php
+          $name = htmlspecialchars($c['nom']);
+          $status = (int)$c['disponible'] === 1 ? 'open' : 'closed';
+          $statusLabel = $status === 'open' ? 'Recrutements ouverts ✅' : 'Recrutements fermés ❌';
+          $img = $c['image'] ?: '';
+        ?>
+        <article class="card" role="listitem" data-name="<?= $name ?>" data-status="<?= $status ?>">
+          <div class="thumb" style="--bg:url('<?= htmlspecialchars($img) ?>')">
+            <?php if ($img): ?>
+              <img src="<?= htmlspecialchars($img) ?>" alt="Illustration <?= $name ?>" loading="lazy" onerror="this.closest('.thumb').classList.add('fallback')"/>
+            <?php else: ?>
+              <div class="noimg">Aucune image</div>
+            <?php endif; ?>
+            <span class="badge <?= $status ?>"><?= $status === 'open' ? 'Ouvert' : 'Fermé' ?></span>
+          </div>
+          <div class="content">
+            <h2 class="title"><?= $name ?></h2>
+            <p class="status <?= $status ?>"><?= $statusLabel ?></p>
+            <div class="actions">
+              <?php if ($img): ?><button class="btn ghost btn-preview" data-src="<?= htmlspecialchars($img) ?>">Prévisualiser</button><?php endif; ?>
+              <?php if ($img): ?><button class="btn ghost btn-copy" data-copy="<?= htmlspecialchars($img) ?>">Copier le lien</button><?php endif; ?>
+            </div>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  </main>
+
+  <!-- Modal preview -->
+  <dialog id="previewModal">
+    <button class="modal-close" autofocus aria-label="Fermer">✕</button>
+    <img id="previewImg" alt="Aperçu" />
+  </dialog>
+
+  <footer class="site-footer container-xl">
+    <p class="muted">© <?= date('Y') ?> – Vue publique. Données fournies par l’admin.</p>
+  </footer>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
+```
+
+---
+
+# 📁 `admin.php`
+
+```php
+<?php
+session_start();
+include("config.php");
+
+// Sécurité basique
+if (!isset($_SESSION['admin'])) {
+  header("Location: login.php");
+  exit;
+}
+
+// Déconnexion
+if (isset($_GET['logout'])) {
+  session_destroy();
+  header("Location: login.php");
+  exit;
+}
+
+// Ajouter
+if (isset($_POST['ajouter'])) {
+  $nom = trim($_POST['nom']);
+  $disponible = isset($_POST['disponible']) ? 1 : 0;
+  $image = !empty($_POST['image_url']) ? trim($_POST['image_url']) : null;
+
+  $sql = "INSERT INTO avaiable_societies (nom, disponible, image) VALUES (?,?,?)";
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([$nom, $disponible, $image]);
+
+  header("Location: admin.php");
+  exit;
+}
+
+// Mettre à jour
+if (isset($_POST['edit'])) {
+  $id = (int)$_POST['id'];
+  $nom = trim($_POST['nom']);
+  $disponible = isset($_POST['disponible']) ? 1 : 0;
+  $image = !empty($_POST['image_url']) ? trim($_POST['image_url']) : null;
+
+  $sql = "UPDATE avaiable_societies SET nom=?, disponible=?, image=? WHERE id=?";
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([$nom, $disponible, $image, $id]);
+
+  header("Location: admin.php");
+  exit;
+}
+
+// Supprimer (optionnel, sécurité simple)
+if (isset($_POST['delete'])) {
+  $id = (int)$_POST['id'];
+  $stmt = $pdo->prepare("DELETE FROM avaiable_societies WHERE id=?");
+  $stmt->execute([$id]);
+  header("Location: admin.php");
+  exit;
+}
+
+// Préremplissage édition
+$editData = null;
+if (isset($_GET['edit'])) {
+  $id = (int)$_GET['edit'];
+  $stmt = $pdo->prepare("SELECT * FROM avaiable_societies WHERE id=?");
+  $stmt->execute([$id]);
+  $editData = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// Liste
+$companies = $pdo->query("SELECT * FROM avaiable_societies ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin • Sociétés</title>
+  <link rel="stylesheet" href="style.css?v=2" />
+</head>
+<body class="theme-dark">
+  <header class="site-header container-xl">
+    <div class="brand">
+      <div class="logo">🔧</div>
+      <div>
+        <h1>Panneau d’administration</h1>
+        <p class="muted">Gérez les sociétés et leurs statuts</p>
+      </div>
+    </div>
+    <nav class="header-actions">
+      <a class="btn ghost" href="index.php">← Vue publique</a>
+      <a class="btn danger" href="?logout=1">Déconnexion</a>
+    </nav>
+  </header>
+
+  <section class="container-xl admin-grid">
+    <div class="card-panel">
+      <h2><?= $editData ? "Éditer la société" : "Ajouter une société" ?></h2>
+      <form method="post" class="form" id="companyForm">
+        <input type="hidden" name="id" value="<?= $editData['id'] ?? '' ?>">
+
+        <label class="field">
+          <span>Nom</span>
+          <input type="text" name="nom" placeholder="Nom de la société" required value="<?= htmlspecialchars($editData['nom'] ?? '') ?>"/>
+        </label>
+
+        <label class="field checkbox">
+          <input type="checkbox" name="disponible" <?= isset($editData['disponible']) && $editData['disponible'] ? 'checked' : '' ?> />
+          <span>Recrutements ouverts</span>
+        </label>
+
+        <label class="field">
+          <span>Lien de l’image (URL)</span>
+          <input type="url" name="image_url" id="imageUrl" placeholder="https://…" value="<?= htmlspecialchars($editData['image'] ?? '') ?>" />
+        </label>
+
+        <div class="img-preview" id="imgPreview">
+          <div class="hint">Aperçu de l’image</div>
+          <img id="preview" alt=""/>
+        </div>
+
+        <button type="submit" class="btn" name="<?= $editData ? 'edit' : 'ajouter' ?>">
+          <?= $editData ? 'Mettre à jour' : 'Ajouter' ?>
+        </button>
+        <?php if ($editData): ?>
+        <a class="btn ghost" href="admin.php">Annuler</a>
+        <?php endif; ?>
+      </form>
+    </div>
+
+    <div class="card-panel">
+      <h2>Liste actuelle</h2>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Image</th>
+              <th>Nom</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($companies as $c): ?>
+              <tr>
+                <td><?= (int)$c['id'] ?></td>
+                <td>
+                  <?php if ($c['image']): ?>
+                    <img class="tbl-thumb" src="<?= htmlspecialchars($c['image']) ?>" alt="thumb" onerror="this.replaceWith(document.createTextNode('image ❌'))"/>
+                  <?php else: ?>
+                    <span class="muted">(aucune)</span>
+                  <?php endif; ?>
+                </td>
+                <td><?= htmlspecialchars($c['nom']) ?></td>
+                <td>
+                  <span class="chip <?= (int)$c['disponible'] === 1 ? 'success' : 'danger' ?>"><?= (int)$c['disponible'] === 1 ? 'Ouvert' : 'Fermé' ?></span>
+                </td>
+                <td class="row-actions">
+                  <a class="btn xs" href="?edit=<?= (int)$c['id'] ?>">Éditer</a>
+                  <form method="post" onsubmit="return confirm('Supprimer cette société ?');" style="display:inline-block">
+                    <input type="hidden" name="id" value="<?= (int)$c['id'] ?>" />
+                    <button class="btn xs danger" name="delete">Supprimer</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
+```
+
+---
+
+# 📁 `style.css`
+
+```css
+/* ===== Dark theme base ===== */
+:root{
+  --bg: #0b0d14;
+  --surface: #121826;
+  --elev: #1a2234;
+  --border: #263047;
+  --text: #e6e9ef;
+  --muted: #a9b1c6;
+  --primary: #8b5cf6; /* violet */
+  --primary-2: #22d3ee; /* cyan */
+  --success: #22c55e;
+  --danger: #ef4444;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body.theme-dark{
+  margin:0; background: radial-gradient(1200px 600px at 20% -10%, rgba(139,92,246,.15), transparent 60%),
+                         radial-gradient(1000px 500px at 120% 10%, rgba(34,211,238,.12), transparent 60%),
+                         var(--bg);
+  color:var(--text);
+  font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+.container-xl{max-width:1100px;margin:0 auto;padding:20px}
+
+/* Header */
+.site-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--primary),var(--primary-2));box-shadow:var(--shadow)}
+.site-header h1{margin:.2rem 0;font-size:1.4rem}
+.muted{color:var(--muted)}
+.header-actions{display:flex;gap:8px}
+
+/* Buttons */
+.btn{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#0b0d14;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;box-shadow:var(--shadow);font-weight:600}
+.btn:hover{filter:brightness(1.05)}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn.ghost:hover{background:rgba(255,255,255,.05)}
+.btn.danger{background: linear-gradient(135deg, #ef4444, #f59e0b); color:white}
+.btn.xs{padding:6px 10px;border-radius:8px;font-size:.85rem}
+
+/* Chips */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.03)}
+.chip.success{border-color:rgba(34,197,94,.4);color:#b7f7c9}
+.chip.danger{border-color:rgba(239,68,68,.4);color:#ffc1c1}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls input[type="search"]{min-width:260px;flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.seg-btn{background:var(--surface);border:none;padding:10px 12px;color:var(--text);cursor:pointer}
+.seg-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#0b0d14}
+
+/* Cards */
+.cards{display:grid;gap:18px}
+.cards.grid-view{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.cards.list-view{grid-template-columns:1fr}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;transition:transform .2s ease, box-shadow .2s ease}
+.card:hover{transform:translateY(-3px);box-shadow:0 20px 40px rgba(0,0,0,.4)}
+.thumb{position:relative;height:160px;background:var(--elev);}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.fallback{background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #111827 10px, #111827 20px);}
+.noimg{display:grid;place-items:center;height:100%;color:var(--muted);font-size:.95rem}
+.badge{position:absolute;top:10px;left:10px;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);border:1px solid var(--border)}
+.badge.open{color:#b7f7c9;border-color:rgba(34,197,94,.4)}
+.badge.closed{color:#ffc1c1;border-color:rgba(239,68,68,.4)}
+.content{padding:14px}
+.title{margin:0 0 6px 0;font-size:1.1rem}
+.status{margin:0 0 10px 0;color:var(--muted)}
+.status.open{color:#b7f7c9}
+.status.closed{color:#ffc1c1}
+.actions{display:flex;gap:8px}
+
+/* Modal */
+dialog{border:none;border-radius:16px;background:var(--surface);padding:0;box-shadow:0 30px 80px rgba(0,0,0,.6);max-width:min(90vw,900px)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+#previewImg{max-width:100%;height:auto;display:block;border-radius:16px}
+.modal-close{position:absolute;right:8px;top:8px;border:none;background:rgba(0,0,0,.4);color:white;border-radius:999px;width:36px;height:36px;cursor:pointer}
+
+/* Footer */
+.site-footer{padding:30px 20px;color:var(--muted)}
+
+/* Admin layout */
+.admin-grid{display:grid;grid-template-columns: 1fr 1.2fr; gap:20px; align-items:start}
+.card-panel{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+.form .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field.checkbox{flex-direction:row;align-items:center;gap:10px}
+.form input[type="text"], .form input[type="url"]{padding:11px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.img-preview{margin:10px 0;border:1px dashed var(--border);border-radius:12px;padding:10px;min-height:120px;display:grid;place-items:center}
+.img-preview img{max-width:100%;max-height:280px;border-radius:10px}
+.hint{color:var(--muted);font-size:.9rem}
+
+.table-responsive{overflow:auto}
+.table{width:100%;border-collapse:separate;border-spacing:0 10px}
+.table th,.table td{text-align:left;padding:10px 12px}
+.table thead th{color:var(--muted);font-weight:600}
+.table tbody tr{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));border:1px solid var(--border)}
+.tbl-thumb{width:80px;height:50px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+.row-actions{display:flex;gap:8px;align-items:center}
+
+/* Responsive */
+@media (max-width: 900px){
+  .admin-grid{grid-template-columns:1fr}
+  .controls input[type="search"]{min-width:100%}
+}
+```
+
+---
+
+# 📁 `app.js`
+
+```js
+// Utility: debounce
+function debounce(fn, wait=150){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), wait); } }
+
+// ===== Index features =====
+(function(){
+  const cards = document.getElementById('cards');
+  if(!cards) return; // only on index
+
+  const search = document.getElementById('search');
+  const toggleOpen = document.getElementById('toggleOpen');
+  const sortAZ = document.getElementById('sortAZ');
+  const sortZA = document.getElementById('sortZA');
+  const sortStatus = document.getElementById('sortStatus');
+  const viewGrid = document.getElementById('viewGrid');
+  const viewList = document.getElementById('viewList');
+
+  const countAll = document.getElementById('countAll');
+  const countOpen = document.getElementById('countOpen');
+  const countClosed = document.getElementById('countClosed');
+
+  const items = Array.from(cards.querySelectorAll('.card'));
+  let showOnly = 'all'; // 'all' | 'open' | 'closed'
+
+  function applyFilters(){
+    const q = (search.value || '').toLowerCase().trim();
+    let visible = 0, vOpen = 0, vClosed = 0;
+
+    items.forEach(el=>{
+      const name = el.dataset.name.toLowerCase();
+      const status = el.dataset.status; // open | closed
+      const match = name.includes(q) && (showOnly==='all' || status===showOnly);
+      el.style.display = match ? '' : 'none';
+      if(match){
+        visible++;
+        if(status==='open') vOpen++; else vClosed++;
+      }
+    });
+
+    countAll.textContent = `${visible} total`;
+    countOpen.textContent = `${vOpen} ouverts`;
+    countClosed.textContent = `${vClosed} fermés`;
+  }
+
+  function sortBy(fn){
+    const sorted = items.slice().sort(fn);
+    sorted.forEach(el=>cards.appendChild(el));
+  }
+
+  search.addEventListener('input', debounce(applyFilters, 120));
+  document.addEventListener('keydown', e=>{
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
+      e.preventDefault(); search.focus();
+    }
+  });
+
+  toggleOpen.addEventListener('click', ()=>{
+    showOnly = showOnly==='all' ? 'open' : (showOnly==='open' ? 'closed' : 'all');
+    toggleOpen.textContent = 'Afficher: ' + (showOnly==='all' ? 'Tous' : showOnly==='open' ? 'Ouverts' : 'Fermés');
+    applyFilters();
+  });
+
+  sortAZ.addEventListener('click', ()=>{
+    sortAZ.classList.add('active'); sortZA.classList.remove('active'); sortStatus.classList.remove('active');
+    sortBy((a,b)=> a.dataset.name.localeCompare(b.dataset.name));
+  });
+  sortZA.addEventListener('click', ()=>{
+    sortZA.classList.add('active'); sortAZ.classList.remove('active'); sortStatus.classList.remove('active');
+    sortBy((a,b)=> b.dataset.name.localeCompare(a.dataset.name));
+  });
+  sortStatus.addEventListener('click', ()=>{
+    sortStatus.classList.add('active'); sortAZ.classList.remove('active'); sortZA.classList.remove('active');
+    sortBy((a,b)=> a.dataset.status.localeCompare(b.dataset.status) || a.dataset.name.localeCompare(b.dataset.name));
+  });
+
+  viewGrid.addEventListener('click', ()=>{ cards.classList.add('grid-view'); cards.classList.remove('list-view'); viewGrid.classList.add('active'); viewList.classList.remove('active'); });
+  viewList.addEventListener('click', ()=>{ cards.classList.remove('grid-view'); cards.classList.add('list-view'); viewList.classList.add('active'); viewGrid.classList.remove('active'); });
+
+  // Copy link + preview modal
+  cards.addEventListener('click', (e)=>{
+    const btnCopy = e.target.closest('.btn-copy');
+    if(btnCopy){
+      navigator.clipboard.writeText(btnCopy.dataset.copy).then(()=>{
+        btnCopy.textContent = 'Copié !';
+        setTimeout(()=>btnCopy.textContent='Copier le lien', 1200);
+      });
+    }
+    const btnPrev = e.target.closest('.btn-preview');
+    if(btnPrev){
+      const src = btnPrev.dataset.src; openPreview(src);
+    }
+  });
+
+  // Modal preview
+  const modal = document.getElementById('previewModal');
+  const img = document.getElementById('previewImg');
+  const close = modal?.querySelector('.modal-close');
+  function openPreview(src){ img.src = src; modal.showModal(); }
+  close?.addEventListener('click', ()=> modal.close());
+  modal?.addEventListener('click', e=>{ if(e.target===modal) modal.close(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && modal?.open) modal.close(); });
+
+  // Initial counts
+  applyFilters();
+})();
+
+// ===== Admin image URL live preview =====
+(function(){
+  const url = document.getElementById('imageUrl');
+  const img = document.getElementById('preview');
+  const wrap = document.getElementById('imgPreview');
+  if(!url || !img) return;
+
+  function update(){
+    const v = url.value.trim();
+    if(!v){ img.removeAttribute('src'); wrap.querySelector('.hint').textContent='Aperçu de l’image'; return; }
+    img.src = v; wrap.querySelector('.hint').textContent = 'Aperçu';
+  }
+  url.addEventListener('input', debounce(update, 120));
+  update();
+})();
+```
+
+---
+
+# ✅ Notes
+
+* Les images sont des **liens externes** (aucun stockage local).
+* Recherche instantanée, filtre par statut, tri, bascule grille/liste, compteur dynamique.
+* Aperçu d’image en modal + bouton « Copier le lien ».
+* Admin : aperçu live de l’URL, suppression, table responsive.
+* Design sombre moderne avec dégradés violet/cyan.
+
+Tu peux adapter les couleurs dans `:root` si besoin. Si tu veux, je peux aussi te fournir une petite page `login.php` harmonisée avec ce design.
