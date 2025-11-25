@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion — BlackSide</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { display:flex; justify-content:center; align-items:center; height:100vh; background:#0a0d15; color:#fff; font-family:Arial; }
+    .login-box { background:#131a28; padding:40px; border-radius:10px; box-shadow:0 5px 20px rgba(0,0,0,0.3); width:320px; }
+    input { width:100%; padding:10px; margin:10px 0; border:none; border-radius:6px; }
+    button { width:100%; padding:10px; background:#1d4ed8; border:none; border-radius:6px; color:#fff; cursor:pointer; }
+    button:hover { background:#2563eb; }
+    a { color:#7ab4ff; font-size:0.9rem; display:block; text-align:center; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h2>Connexion</h2>
+    <form onsubmit="fakeLogin(event)">
+      <input type="text" placeholder="Nom d'utilisateur" required>
+      <input type="password" placeholder="Mot de passe" required>
+      <button type="submit">Se connecter</button>
+    </form>
+    <a href="register.html">Créer un compte</a>
+    <a href="index.html">⬅ Retour</a>
+  </div>
+
+<script>
+function fakeLogin(e) {
+  e.preventDefault();
+  alert("Version statique uniquement — connexion désactivée.");
+}
+</script>
+</body>
+</html>

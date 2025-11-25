@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Nouvelle entreprise — Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#0a0d15; color:#fff; display:flex; justify-content:center; padding:40px; }
+    .form-box { width:500px; background:#131a28; padding:25px; border-radius:10px; }
+    input, select { width:100%; padding:10px; margin:8px 0; border-radius:6px; border:none; }
+    button { padding:10px 18px; border:none; border-radius:6px; background:#1d4ed8; color:white; cursor:pointer; }
+  </style>
+</head>
+
+<body>
+  <div class="form-box">
+    <h2>Ajouter une entreprise (statique)</h2>
+    <form onsubmit="fakeSave(event)">
+      <input type="text" placeholder="Nom de l'entreprise" required>
+      <input type="text" placeholder="Contact Discord" required>
+      <input type="url" placeholder="Lien Discord / Site (facultatif)">
+      <select>
+        <option value="open">Disponible</option>
+        <option value="closed">Non Disponible</option>
+      </select>
+      <button type="submit">💾 Enregistrer (simulé)</button>
+    </form>
+    <a href="admin.html" class="btn ghost">⬅ Retour</a>
+  </div>
+
+<script>
+function fakeSave(e) {
+  e.preventDefault();
+  alert("💾 Enregistrement simulé — version statique uniquement.");
+}
+</script>
+</body>
+</html>
